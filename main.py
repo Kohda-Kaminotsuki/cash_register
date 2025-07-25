@@ -1,3 +1,4 @@
+import sys
 CURRENCYLIST: list[list[str]] = [["USD", "Dollar", "United States Dollar", "Half Dollar", "$", "Half Dollar", "Quarter", "Dime", "Nickel", "Penny", "Pennies", "Cent", "¢"],
                                  ["EUR", "Euro", "European Euro",],
                                  ["GBP", "Pound", "Pounds", "British Pound", "British Pounds"],
@@ -27,8 +28,10 @@ class CashRegister:
         assert self.currency_code in CURRENCYLISTLOOKUP, f"Invalid currency code: {self.currency_code: str}"
         self.currency_strings: list = CURRENCYLIST[CURRENCYLISTLOOKUP.index(self.currency_code: str): int]
         self.total: float = 0.0
-        self.bill_partitions:list = kwargs.get("bill_partitions": list, [100, 50, 20, 10, 5, 1])
-        self.coin_partitions:list = kwargs.get("coin_partitions": list, [0.50, 0.25, 0.10, 0.05, 0.01])
+        self.bill_partitions: list = kwargs.get("bill_partitions") if kwargs.get("bill_partitions") is not None else [100, 50, 20, 10, 5, 1] 
+        assert self.bill_partitions is list, f"Bill partitions must be a list: {self.bill_partitions: list}"
+        self.coin_partitions: list = kwargs.get("coin_partitions") if kwargs.get("coin_partitions") is not None else [0.50, 0.25, 0.10, 0.05, 0.01]
+        assert self.coin_partitions is list, f"Coin partitions must be a list: {self.coin_partitions: list}"
         for partition in self.bill_partitions + self.coin_partitions:
             if partition < 0: raise ValueError("Partition values must be non-negative")
             setattr(self, f"partition_{partition}_stack", [])
@@ -55,12 +58,35 @@ class CashRegister:
 
     def get_actual_money(self, *args: None | float) -> float:
         checking_sum = 0.0
-        if kwargs == {}: return self.total
-        for key, value in kwargs.
         for arg in args():
-            assert kwarg is float
-            if kwarg.startswith("partition_"):
-                checklist = getattr(f"{kwarg}.stack")
-                for item in checklist:
-                    if item in kwarg: checking_sum += float(item)
+            for item in getattr(f"partition_{str(arg)}_stack"):
+                checking_sum += float(item)
         return checking_sum
+
+    def get_percieved_money(self, *args: float | int) -> float:
+        checking_sum = 0.0
+        if args is tuple():
+            args = tuple(self.bill_partitions + self.coin_partitions)
+        for arg in args:
+            checking_sum += arg * len(getattr(f"partition_{str(arg)}_stack")) # Potential Error Point, I believe pylance is overreacting here though
+        return checking_sum
+    
+sample_cash_register = CashRegister(currency_code="USD", bill_partitions=[100, 50, 20, 10, 5, 1], coin_partitions=[0.50, 0.25, 0.10, 0.05, 0.01])
+
+if __name__ == "__main__":
+    match sys.argv[1]:
+        case "get":
+            assert sys.argv[2] in ["actual", "percieved"], f'Invalid argument: second argument must be "actual" or "percieved"'
+            assert sys.argv[3] is list or sys.argv[3] is None, f'Invalid argument: third argument must be a list of floats or None'
+            if sys.argv[3] is list and sys.argv[2] is "actual": print(sample_cash_register.get_actual_money(argv[3]))
+            if sys.argv[3] is not list and sys.argv[2] is "actual": print(sample_cash_register.get_actual_money())
+
+        case _:
+            print("Usage: python main.py 'command_string'")
+            print('"get": argv[2] should be "actual" or "percieved" based on if you want to have each bill or coin checked in their stack')
+            print('"set": argv[2] should be a positive float to set actual total to')
+            print('"add": argv[2] should be a positive float to add to the total')
+            print('"remove": argv[2] should be a positive float to remove from the total')
+            print('"adjust": argv[2] should be a float to adjust the total by, can be negative')
+            sys.exit(0)
+
