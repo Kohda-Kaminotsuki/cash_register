@@ -124,7 +124,8 @@ def main(adjust_amount=0, adjust_skip=False):
         adjust_skip = True
         action = "add"
     else:
-        print("This is a demo of a cash register system.")
+        print("You stand before an open cashregister.")
+        print("You feel the power to adjust the contents of the cash register flowing through you.")
         print("[adjust], [get], [set], [add], [remove]")
         while action not in ["adjust", "get", "set", "add", "remove"]: # type: ignore
             action = input("What would you like to do?")
