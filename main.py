@@ -1,9 +1,11 @@
 # Limitations ?
 # 1. Inputs can't be complex for demo, sys.argv, unlike actual implementation, is limited to string type 
 # and I am very hesitant to use eval() when copilot screams at me every time I try to use it
+# 2. Don't have time in the hackathon to implement non-calculator specs without feature locking and risking no time left for debug.
 
 import sys
 import math
+import ast
 
 CURRENCYLIST: list[list[str]] = [["USD", "Dollar", "United States Dollar", "Half Dollar", "$", "Half Dollar", "Quarter", "Dime", "Nickel", "Penny", "Pennies", "Cent", "¢"],
                                  ["EUR", "Euro", "European Euro",],
@@ -112,84 +114,199 @@ sample_cash_register = CashRegister(currency_code="USD",
                                     bill_partitions=[100, 50, 20, 10, 5, 1], 
                                     coin_partitions=[0.50, 0.25, 0.10, 0.05, 0.01])
 
-def main():
+def main(adjust_amount=0, adjust_skip=False):
+    if adjust_skip == "remove":
+        adjust_skip = True
+        action = "remove"
+    elif adjust_skip == "add":
+        adjust_skip = True
+        action = "add"
+    else:
+        print("This is a demo of a cash register system.")
+        print("[adjust], [get], [set], [add], [remove]")
+        while action not in ["adjust", "get", "set", "add", "remove"]:
+            action = input("What would you like to do?")
+            if action.lower() in ["adjust", "get", "set", "add", "remove"]:
+                break
+            else:
+                print('Invalid action, please choose from "adjust", "get", "set", "add", "remove"')
     try:
-        while len(sys.argv) < 4: sys.argv.append(None) # type: ignore
-        match sys.argv[1].lower():
-            case "get": #gud
-                assert sys.argv[2] in ["actual", "percieved"], f'Invalid argument: second argument must be "actual" or "percieved"'
-                assert sys.argv[3] == None or (sys.argv[3].startswith("[") and sys.argv[3].endswith("]")), f'Invalid argument: third argument must be a list of numbers inside quotes'
-                if sys.argv[3]: sys.argv[3] = [float(x) for x in (sys.argv[3].strip("[]").split(","))] # type: ignore
-                if isinstance(sys.argv[3], list) and sys.argv[2] == "actual": print(sample_cash_register.get_actual_money(sys.argv[3]))
-                if sys.argv[2] == "actual": print(sample_cash_register.get_actual_money())
-                if isinstance(sys.argv[3], list) and sys.argv[2] == "percieved": print(sample_cash_register.get_percieved_money(sys.argv[3]))
-                if sys.argv[2] == "percieved": print(sample_cash_register.get_percieved_money())
-                sys.exit(0)
+        match action.lower():
 
-            case "set": #gud
-                try:
-                    sys.argv[2] = float(sys.argv[2]) # type: ignore
-                    assert sys.argv[2] > 0, f'Invalid argument: second argument must be a positive number'
-                    if sys.argv[2] == float("inf"): raise ValueError("Set can't be infinite")
-                except TypeError: 
-                    print("Second Argument of set must be a positive number and not infinite")
-                    sys.exit(1)
-                except ValueError:
-                    print("Second Argument of set must be a positive number and not infinite")
-                    sys.exit(1)
+            case "get": #gud and done
+                get_type = ""
+                while get_type.lower() not in ["actual", "percieved"]:
+                    get_type = input('Do you want the "actual" or "percieved" amount?')
+                    if get_type.lower() in ["actual", "percieved"]:
+                        break
+                    else:
+                        print('Invalid type, please choose "actual" or "percieved"')
+                while True is True:
+                    denomination_list = input("Enter a list of denominations to check, empty will check all")
+                    try:
+                        if denomination_list == "":
+                            break
+                        denomination_list = denomination_list.strip("[]").split(",")
+                        for denomination in denomination_list:
+                            if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
+                                print(f"Error: {denomination} not in list of denominations")
+                                continue
+                        break
+                    except Exception:
+                        print("Error: Invalid denomination list, please enter a list of numbers inside quotes")
+                        continue
+
+
+                if get_type.lower() == "actual":
+                    if denomination_list == "":
+                        print(sample_cash_register.get_actual_money())
+                    else:
+                        print(sample_cash_register.get_actual_money(denomination_list))
+                else:
+                    if denomination_list == "":
+                        print(sample_cash_register.get_percieved_money())
+                    else:
+                        print(sample_cash_register.get_percieved_money(denomination_list))
+                sys.exit(0)        
+
+            case "set": #gud and done
+                while True:
+                    set_amount = input("Enter the amount of cash to have in the register")
+                    if isinstance(set_amount, (int, float)):
+                        if 0 < set_amount < "inf":
+                            print("Invalid amount, must be non-negative, non-infinite number")
+                        else:
+                            break
+                    else:
+                        print("Invalid amount, must be a number")
+                set_amount = float(set_amount) # type: ignore
                 for unit in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions: 
                     formatted_unit = ("{:.2f}".format(unit)).replace('.', '_')
                     setattr(sample_cash_register, f"partition_{formatted_unit}_count", 0)
                     setattr(sample_cash_register, f"partition_{formatted_unit}_stack", [])
                 for unit in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
-                    while sys.argv[2] - unit >= round(0.0, 2):
+                    while set_amount - unit >= round(0.0, 2):
                         print(unit)
                         sample_cash_register.add_money(round(unit, 2))
-                        sys.argv[2] -= round(unit, 2) # type: ignore
+                        set_amount -= round(unit, 2) # type: ignore
                 print(f"Total set to {sample_cash_register.get_percieved_money()}")
-                if round(sys.argv[2], 2) > 0:
-                    print(f"Warning: {sys.argv[2]} was left over after setting total, this may be due to rounding errors or insufficient denominations")
+                if round(set_amount, 2) > 0:
+                    print(f"Warning: {set_amount} was left over after setting total, this may be due to rounding errors or insufficient denominations")
                     sys.exit(1)
                 sys.exit(0)
 
-            case "add": #gud
-                adder_count: float = round(0.0, 2)
-                sys.argv[2] = round(float(sys.argv[2]), 2) # type: ignore
-                assert sys.argv[2] >= 0, f'Invalid argument: second argument must be a positive float'
-                if sys.argv[2] == float("inf"): raise ValueError("Add can't be infinite")
-                if sys.argv[3] is None:
-                    checklist = sample_cash_register.bill_partitions + sample_cash_register.coin_partitions
+            case "add": #gud and done
+                if adjust_skip == True:
+                    add_amount = adjust_amount
                 else:
-                    checklist = [float(x) for x in (sys.argv[3].strip("[]").split(","))]
+                    while True:
+                        add_amount = input("Enter how much to add to the total")
+                        if not isinstance(add_amount, (int, float)):
+                            print("Invalid amount, must be a number")
+                        if 0 < add_amount < "inf":
+                            break
+                        else:
+                            print("Invalid amount, must be non-negative, non-infinite number")
+                add_amount = float(add_amount) # type: ignore
+                checklist_type = ""
+                adder_count: float = round(0.0, 2)
+                while True:
+                    checklist = input("Enter a list or dictionary of denominations to add, empty will add from all denominations from highest to lowest")
+                    if checklist == "":
+                        checklist = sample_cash_register.bill_partitions + sample_cash_register.coin_partitions
+                        checklist_type = "list"
+                        break
+                    elif checklist.startswith("[") and checklist.endswith("]"):
+                        checklist = checklist.strip("[]").split(",")
+                        try:
+                            for denomination in checklist:
+                                if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
+                                    print(f"Error: {denomination} not in list of denominations")
+                            checklist_type = "list"
+                            break
+                    elif checklist.startswith("{") and checklist.endswith("}"):
+                        try:
+                            checklist = ast.literal_eval(checklist)
+                        except Exception:
+                            print("Error: Invalid Dictionary, watch that keys are strings")
+                        for denomination in checklist:
+                            if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
+                                print(f"Error: {denomination} not in list of denominations")
+                        checklist_type = "dict"
+                        break    
+                    else:
+                        print("Invalid input, must be empty, list, or dictionary of denominations")
+                        
                 for unit in checklist:
                     unit_formatted = ("{:.2f}".format(unit)).replace('.', '_')
-                    while round(sys.argv[2], 2) - round(unit, 2) >= 0:
+                    while round(add_amount, 2) - round(float(unit), 2) >= 0:
+                        if checklist_type == "dict":
+                            if checklist[unit] == 0:
+                                break
+                            else:
+                                checklist[unit] -= 1
                         sample_cash_register.add_money(unit)
-                        adder_count += round(unit, 2)
-                        sys.argv[2] -= round(unit, 2) # type: ignore
+                        adder_count += round(float(unit), 2)
+                        add_amount -= round(float(unit), 2) # type: ignore
                 print(f"Added {adder_count} to total, new total is {sample_cash_register.get_percieved_money()}")
-                if sys.argv[2] > 0:
-                    print(f"Warning: {sys.argv[2]} was left over after adding, this may be due to rounding errors or insufficient denominations")
+                if add_amount > 0:
+                    print(f"Warning: {add_amount} was left over after adding, this may be due to rounding errors or insufficient denominations")
                     sys.exit(1)
                 sys.exit(0)
 
-            case "remove": #gud
-                sys.argv[2] = round(float(sys.argv[2]), 2) # type: ignore
-                assert sys.argv[2] > 0, f'Invalid argument: second argument must be a positive float'
-                if sys.argv[2] == float("inf"): raise ValueError("Remove can't be infinite")
-                current_denomination: int|float = 0
-                remaining_debt: float = sys.argv[2] #gonna need to review all sys argv types later
-                if sys.argv[3] is None:
-                    checklist = sample_cash_register.bill_partitions + sample_cash_register.coin_partitions
+            case "remove": #gud and done
+                if adjust_skip == true:
+                    remove_amount = adjust_amount
                 else:
-                    checklist = [float(x) for x in (sys.argv[3].strip("[]").split(","))]
+                    while True:
+                        remove_amount = input("Enter how much to remove from the total")
+                        if not isinstance(remove_amount, (int, float)):
+                            print("Invalid amount, must be a number")
+                        if 0 < remove_amount < "inf":
+                            break
+                        else:
+                            print("Invalid amount, must be non-negative, non-infinite number")
+                remove_amount = remainint_debt = float(remove_amount) # type: ignore
+                current_denomination: int|float = 0
+                while True:
+                    checklist = input("Request specific denominations? If list will try to only use list denominations first, if dictionary will try to fulfill all values for each key from lowest key to highest key, empty will use all denominations from highest to lowest")
+                    if checklist == "":
+                        checklist = sample_cash_register.bill_partitions + sample_cash_register.coin_partitions
+                        break
+                    elif checklist.startswith("[") and checklist.endswith("]"):
+                        checklist = ast.literal_eval(checklist)
+                        try:
+                            for denomination in checklist:
+                                if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
+                                    print(f"Error: {denomination} not in list of denominations")
+                                    continue
+                        except Exception:
+                            print("Error: Invalid List, watch that values are numbers")
+                            continue
+
+                        break            
+                    elif checklist.startswith("{") and checklist.endswith("}"):
+                        try:
+                            checklist = ast.literal_eval(checklist)
+                        except Exception:
+                            print("Error: Invalid Dictionary, watch that keys are strings")
+                            continue
+                        for denomination in checklist:
+                            if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
+                                print(f"Error: {denomination} not in list of denominations")
+                                continue
+                        break        
+                    else:
+                        print("Invalid input, must be empty, list, or dictionary of denominations")
+                        continue
+                if checklist != sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
+                    checklist = sorted(checklist, reverse=True)
                 for current_denomination in checklist:
-                    print(f"Current Denomination: {current_denomination}")
+                    if isinstance(checklist, dict):
+                        if checklist[current_denomination] == 0:
+                            continue
                     curr_denom_formatted = ("{:.2f}".format(current_denomination)).replace('.', '_')
-                    print(f"formatted: {curr_denom_formatted}")
-                    print(getattr(sample_cash_register, f"partition_{curr_denom_formatted}_count"))
-                    print(getattr(sample_cash_register, f"partition_{curr_denom_formatted}_stack"))
-                    while (round(remaining_debt, 2) >= round(current_denomination, 2)) and getattr(sample_cash_register, f"partition_{curr_denom_formatted}_count") > 0:
+                    while (round(remaining_debt, 2) >= round(float(current_denomination), 2)) and getattr(sample_cash_register, f"partition_{curr_denom_formatted}_count") > 0:
                         sample_cash_register.remove_money(current_denomination)
                         remaining_debt -= round(current_denomination, 2)
                         setattr(sample_cash_register, 
@@ -198,23 +315,46 @@ def main():
                                 f"partition_{curr_denom_formatted}_count") - 1))
                         getattr(sample_cash_register, f"partition_{curr_denom_formatted}_stack").pop()
                         print(round(remaining_debt, 2))
+    
                 if round(remaining_debt, 2) > 0:
-                    print(f"Tried removing {sys.argv[2]} from total, new total is {sample_cash_register.get_percieved_money()}, but {round(remaining_debt, 2):.2f} was left over")
+                    checklist = sample_cash_register.bill_partitions + sample_cash_register.coin_partitions
+                    for current_denomination in checklist:
+                        curr_denom_formatted = ("{:.2f}".format(current_denomination)).replace('.', '_')
+                        while (round(remaining_debt, 2) >= round(float(current_denomination), 2)) and getattr(sample_cash_register, f"partition_{curr_denom_formatted}_count") > 0:
+                            sample_cash_register.remove_money(current_denomination)
+                            remaining_debt -= round(current_denomination, 2)
+                            setattr(sample_cash_register, 
+                                    f"partition_{curr_denom_formatted}_count", 
+                                    (getattr(sample_cash_register,
+                                    f"partition_{curr_denom_formatted}_count") - 1))
+                            getattr(sample_cash_register, f"partition_{curr_denom_formatted}_stack").pop()
+                if round(remaining_debt, 2) > 0:
+                    print(f"Tried removing {remove_amount} from total, new total is {sample_cash_register.get_percieved_money()}, but {round(remaining_debt, 2):.2f} was left over")
+                    sys.exit(1)
                 else:
-                    print(f"Removed {sys.argv[2]} from total, new total is {sample_cash_register.get_percieved_money()}")
+                    print(f"Removed {remove_amount} from total, new total is {sample_cash_register.get_percieved_money()}")
                 sys.exit(0)
 
             case "adjust": #gud and done
-                sys.argv[2] = float(sys.argv[2]) # type: ignore
-                if sys.argv[2] < 0: 
-                    sys.argv[1] = "remove"
-                    sys.argv[2] = abs(sys.argv[2]) # type: ignore
-                elif sys.argv[2] > 0:
-                    sys.argv[1] = "add"
+                while True:
+                    adjust_amount = input ("Enter how much to adjust the total by, can be negative")
+                    if not isinstance(adjust_amount, (int, float)):
+                        print("Invalid amount, must be a number")
+                    if "-inf" < adjust_amount < "inf":
+                        break
+                    else:
+                        print("Invalid amount, must be non-negative, non-infinite number")
+                        continue
+                adjust_amount = float(adjust_amount) # type: ignore
+                if adjust_amount < 0: 
+                    adjust_skip = "remove"
+                    adjust_amount = abs(sys.argv[2]) # type: ignore
+                elif adjust_amount > 0:
+                    adjust_skip = "add"
                 else:
                     print("No adjustment made, value is 0")
                     sys.exit(0)
-                main()
+                main(adjust_amount, adjust_skip)
             
             case _: #gud and done
                 print("Usage: python main.py 'command_string'")
