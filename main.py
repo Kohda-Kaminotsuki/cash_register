@@ -124,14 +124,14 @@ def main(adjust_amount=0, adjust_skip=False):
     else:
         print("This is a demo of a cash register system.")
         print("[adjust], [get], [set], [add], [remove]")
-        while action not in ["adjust", "get", "set", "add", "remove"]:
+        while action not in ["adjust", "get", "set", "add", "remove"]: # type: ignore
             action = input("What would you like to do?")
             if action.lower() in ["adjust", "get", "set", "add", "remove"]:
                 break
             else:
                 print('Invalid action, please choose from "adjust", "get", "set", "add", "remove"')
     try:
-        match action.lower():
+        match action.lower(): # type: ignore
 
             case "get": #gud and done
                 get_type = ""
@@ -141,12 +141,15 @@ def main(adjust_amount=0, adjust_skip=False):
                         break
                     else:
                         print('Invalid type, please choose "actual" or "percieved"')
-                while True is True:
+                while True:
                     denomination_list = input("Enter a list of denominations to check, empty will check all")
                     try:
                         if denomination_list == "":
                             break
-                        denomination_list = denomination_list.strip("[]").split(",")
+                        denomination_list = ast.literal_eval(denomination_list)
+                        if not isinstance(denomination_list, list):
+                            print("Error: Denomination list must be a list")
+                            continue
                         for denomination in denomination_list:
                             if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
                                 print(f"Error: {denomination} not in list of denominations")
@@ -172,8 +175,9 @@ def main(adjust_amount=0, adjust_skip=False):
             case "set": #gud and done
                 while True:
                     set_amount = input("Enter the amount of cash to have in the register")
+                    set_amount = ast.literal_eval(set_amount)
                     if isinstance(set_amount, (int, float)):
-                        if 0 < set_amount < "inf":
+                        if 0 < set_amount < float("inf"):
                             print("Invalid amount, must be non-negative, non-infinite number")
                         else:
                             break
@@ -201,9 +205,10 @@ def main(adjust_amount=0, adjust_skip=False):
                 else:
                     while True:
                         add_amount = input("Enter how much to add to the total")
+                        add_amount = ast.literal_eval(add_amount)
                         if not isinstance(add_amount, (int, float)):
                             print("Invalid amount, must be a number")
-                        if 0 < add_amount < "inf":
+                        if 0 < add_amount < float("inf"):
                             break
                         else:
                             print("Invalid amount, must be non-negative, non-infinite number")
@@ -217,13 +222,19 @@ def main(adjust_amount=0, adjust_skip=False):
                         checklist_type = "list"
                         break
                     elif checklist.startswith("[") and checklist.endswith("]"):
-                        checklist = checklist.strip("[]").split(",")
+                        checklist = ast.literal_eval(checklist)
+                        if not isinstance(checklist, list):
+                            print("Error: Denomination list must be a list")
+                            continue
                         try:
                             for denomination in checklist:
                                 if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
                                     print(f"Error: {denomination} not in list of denominations")
                             checklist_type = "list"
                             break
+                        except Exception as e:
+                            print("Error: Invalid List, watch that values are numbers")
+                            continue
                     elif checklist.startswith("{") and checklist.endswith("}"):
                         try:
                             checklist = ast.literal_eval(checklist)
@@ -241,11 +252,11 @@ def main(adjust_amount=0, adjust_skip=False):
                     unit_formatted = ("{:.2f}".format(unit)).replace('.', '_')
                     while round(add_amount, 2) - round(float(unit), 2) >= 0:
                         if checklist_type == "dict":
-                            if checklist[unit] == 0:
+                            if checklist[unit] == 0: # type: ignore
                                 break
                             else:
-                                checklist[unit] -= 1
-                        sample_cash_register.add_money(unit)
+                                checklist[unit] -= 1 # type: ignore
+                        sample_cash_register.add_money(unit) # type:ignore
                         adder_count += round(float(unit), 2)
                         add_amount -= round(float(unit), 2) # type: ignore
                 print(f"Added {adder_count} to total, new total is {sample_cash_register.get_percieved_money()}")
@@ -255,18 +266,19 @@ def main(adjust_amount=0, adjust_skip=False):
                 sys.exit(0)
 
             case "remove": #gud and done
-                if adjust_skip == true:
+                if adjust_skip == "remove":
                     remove_amount = adjust_amount
                 else:
                     while True:
                         remove_amount = input("Enter how much to remove from the total")
+                        remove_amount = ast.literal_eval(remove_amount)
                         if not isinstance(remove_amount, (int, float)):
                             print("Invalid amount, must be a number")
-                        if 0 < remove_amount < "inf":
+                        if 0 < remove_amount < float("inf"):
                             break
                         else:
                             print("Invalid amount, must be non-negative, non-infinite number")
-                remove_amount = remainint_debt = float(remove_amount) # type: ignore
+                remove_amount = remaining_debt = float(remove_amount) # type: ignore
                 current_denomination: int|float = 0
                 while True:
                     checklist = input("Request specific denominations? If list will try to only use list denominations first, if dictionary will try to fulfill all values for each key from lowest key to highest key, empty will use all denominations from highest to lowest")
@@ -338,9 +350,10 @@ def main(adjust_amount=0, adjust_skip=False):
             case "adjust": #gud and done
                 while True:
                     adjust_amount = input ("Enter how much to adjust the total by, can be negative")
+                    adjust_amount = ast.literal_eval(adjust_amount)
                     if not isinstance(adjust_amount, (int, float)):
                         print("Invalid amount, must be a number")
-                    if "-inf" < adjust_amount < "inf":
+                    if float("-inf") < adjust_amount < float("inf"):
                         break
                     else:
                         print("Invalid amount, must be non-negative, non-infinite number")
@@ -354,7 +367,7 @@ def main(adjust_amount=0, adjust_skip=False):
                 else:
                     print("No adjustment made, value is 0")
                     sys.exit(0)
-                main(adjust_amount, adjust_skip)
+                main(adjust_amount, adjust_skip) # type: ignore
             
             case _: #gud and done
                 print("Usage: python main.py 'command_string'")
