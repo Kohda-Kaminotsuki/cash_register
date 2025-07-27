@@ -115,6 +115,8 @@ sample_cash_register = CashRegister(currency_code="USD",
                                     coin_partitions=[0.50, 0.25, 0.10, 0.05, 0.01])
 
 def main(adjust_amount=0, adjust_skip=False):
+    super_go_horse_trigger = False
+    action = ""
     if adjust_skip == "remove":
         adjust_skip = True
         action = "remove"
@@ -133,7 +135,7 @@ def main(adjust_amount=0, adjust_skip=False):
     try:
         match action.lower(): # type: ignore
 
-            case "get": #gud and done
+            case "get": #gud and done and checked
                 get_type = ""
                 while get_type.lower() not in ["actual", "percieved"]:
                     get_type = input('Do you want the "actual" or "percieved" amount?')
@@ -153,7 +155,11 @@ def main(adjust_amount=0, adjust_skip=False):
                         for denomination in denomination_list:
                             if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
                                 print(f"Error: {denomination} not in list of denominations")
-                                continue
+                                super_go_horse_trigger = True
+                                break
+                        if super_go_horse_trigger:
+                            super_go_horse_trigger = False
+                            continue
                         break
                     except Exception:
                         print("Error: Invalid denomination list, please enter a list of numbers inside quotes")
@@ -172,17 +178,21 @@ def main(adjust_amount=0, adjust_skip=False):
                         print(sample_cash_register.get_percieved_money(denomination_list))
                 sys.exit(0)        
 
-            case "set": #gud and done
+            case "set": #gud and done and checked
                 while True:
                     set_amount = input("Enter the amount of cash to have in the register")
-                    set_amount = ast.literal_eval(set_amount)
-                    if isinstance(set_amount, (int, float)):
-                        if 0 < set_amount < float("inf"):
-                            print("Invalid amount, must be non-negative, non-infinite number")
+                    try:
+                        set_amount = ast.literal_eval(set_amount)
+                        if isinstance(set_amount, (int, float)):
+                            set_amount = float(set_amount)
+                            if 0 < set_amount < float("inf"):
+                                break
+                            else:
+                                print("Invalid amount, must be non-negative, non-infinite number")
                         else:
-                            break
-                    else:
-                        print("Invalid amount, must be a number")
+                            print("Invalid amount, must be a number")
+                    except Exception as e:
+                        print("Invalid input, must be a positive number that isn't infinite")
                 set_amount = float(set_amount) # type: ignore
                 for unit in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions: 
                     formatted_unit = ("{:.2f}".format(unit)).replace('.', '_')
@@ -199,19 +209,25 @@ def main(adjust_amount=0, adjust_skip=False):
                     sys.exit(1)
                 sys.exit(0)
 
-            case "add": #gud and done
+            case "add": #gud and done and checked
                 if adjust_skip == True:
                     add_amount = adjust_amount
                 else:
                     while True:
-                        add_amount = input("Enter how much to add to the total")
-                        add_amount = ast.literal_eval(add_amount)
-                        if not isinstance(add_amount, (int, float)):
-                            print("Invalid amount, must be a number")
-                        if 0 < add_amount < float("inf"):
-                            break
-                        else:
-                            print("Invalid amount, must be non-negative, non-infinite number")
+                        try:
+                            add_amount = input("Enter how much to add to the total")
+                            add_amount = ast.literal_eval(add_amount)
+                            if not isinstance(add_amount, (int, float)):
+                                print("Invalid amount, must be a number")
+                                continue
+                            if 0 < add_amount < float("inf"):
+                                break
+                            else:
+                                print("Invalid amount, must be non-negative, non-infinite number")
+                                continue
+                        except Exception as e:
+                            print("Invalid input, must be a positive number that isn't infinite")
+                            continue
                 add_amount = float(add_amount) # type: ignore
                 checklist_type = ""
                 adder_count: float = round(0.0, 2)
@@ -223,13 +239,22 @@ def main(adjust_amount=0, adjust_skip=False):
                         break
                     elif checklist.startswith("[") and checklist.endswith("]"):
                         checklist = ast.literal_eval(checklist)
-                        if not isinstance(checklist, list):
-                            print("Error: Denomination list must be a list")
+                        try:
+                            if not isinstance(checklist, list):
+                                print("Error: Denomination list must be a list")
+                                continue
+                        except Exception as e:
+                            print("Error: Invalid List, watch that values are numbers")
                             continue
                         try:
                             for denomination in checklist:
                                 if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
                                     print(f"Error: {denomination} not in list of denominations")
+                                    super_go_horse_trigger = True
+                                    break
+                            if super_go_horse_trigger:
+                                super_go_horse_trigger = False
+                                continue
                             checklist_type = "list"
                             break
                         except Exception as e:
@@ -238,11 +263,19 @@ def main(adjust_amount=0, adjust_skip=False):
                     elif checklist.startswith("{") and checklist.endswith("}"):
                         try:
                             checklist = ast.literal_eval(checklist)
+                            for key in checklist:
+                                float(key)
                         except Exception:
-                            print("Error: Invalid Dictionary, watch that keys are strings")
+                            print("Error: Invalid Dictionary, watch that keys are strings that can be converted to float, i.e. '1'")
+                            continue   
                         for denomination in checklist:
                             if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
                                 print(f"Error: {denomination} not in list of denominations")
+                                super_go_horse_trigger = True
+                                break
+                        if super_go_horse_trigger:
+                            super_go_horse_trigger = False
+                            continue
                         checklist_type = "dict"
                         break    
                     else:
@@ -265,8 +298,8 @@ def main(adjust_amount=0, adjust_skip=False):
                     sys.exit(1)
                 sys.exit(0)
 
-            case "remove": #gud and done
-                if adjust_skip == "remove":
+            case "remove": #gud and done and checked
+                if adjust_skip == True:
                     remove_amount = adjust_amount
                 else:
                     while True:
@@ -286,16 +319,26 @@ def main(adjust_amount=0, adjust_skip=False):
                         checklist = sample_cash_register.bill_partitions + sample_cash_register.coin_partitions
                         break
                     elif checklist.startswith("[") and checklist.endswith("]"):
-                        checklist = ast.literal_eval(checklist)
+                        print("A")
                         try:
-                            for denomination in checklist:
-                                if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
-                                    print(f"Error: {denomination} not in list of denominations")
-                                    continue
+                            checklist = ast.literal_eval(checklist)
                         except Exception:
                             print("Error: Invalid List, watch that values are numbers")
                             continue
-
+                            
+                        print("B")
+                        for denomination in checklist:
+                            print(f"C: {denomination}")
+                            if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
+                                print(f"D: {denomination}")
+                                print(f"Error: {denomination} not in list of denominations")
+                                print(f"E: {denomination}")
+                                super_go_horse_trigger = True
+                                break
+                                print(f"F: {denomination}")
+                        if super_go_horse_trigger:
+                            super_go_horse_trigger = False
+                            continue
                         break            
                     elif checklist.startswith("{") and checklist.endswith("}"):
                         try:
@@ -306,7 +349,11 @@ def main(adjust_amount=0, adjust_skip=False):
                         for denomination in checklist:
                             if denomination not in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
                                 print(f"Error: {denomination} not in list of denominations")
-                                continue
+                                super_go_horse_trigger = True
+                                break
+                        if super_go_horse_trigger:
+                            super_go_horse_trigger = False
+                            continue
                         break        
                     else:
                         print("Invalid input, must be empty, list, or dictionary of denominations")
@@ -347,10 +394,14 @@ def main(adjust_amount=0, adjust_skip=False):
                     print(f"Removed {remove_amount} from total, new total is {sample_cash_register.get_percieved_money()}")
                 sys.exit(0)
 
-            case "adjust": #gud and done
+            case "adjust": #gud and done and checked
                 while True:
                     adjust_amount = input ("Enter how much to adjust the total by, can be negative")
-                    adjust_amount = ast.literal_eval(adjust_amount)
+                    try:
+                        adjust_amount = float(adjust_amount)
+                    except Exception:
+                        print("Invalid amount, must be a number")
+                        continue
                     if not isinstance(adjust_amount, (int, float)):
                         print("Invalid amount, must be a number")
                     if float("-inf") < adjust_amount < float("inf"):
@@ -361,7 +412,7 @@ def main(adjust_amount=0, adjust_skip=False):
                 adjust_amount = float(adjust_amount) # type: ignore
                 if adjust_amount < 0: 
                     adjust_skip = "remove"
-                    adjust_amount = abs(sys.argv[2]) # type: ignore
+                    adjust_amount = abs(adjust_amount) # type: ignore
                 elif adjust_amount > 0:
                     adjust_skip = "add"
                 else:
