@@ -1,3 +1,7 @@
+# Limitations ?
+# 1. Inputs can't be complex for demo, sys.argv, unlike actual implementation, is limited to string type 
+# and I am very hesitant to use eval() when copilot screams at me every time I try to use it
+
 import sys
 import math
 
@@ -41,19 +45,22 @@ class CashRegister:
             self.coin_partitions[self.coin_partitions.index(i)] = round(i, 2)
         for partition in self.bill_partitions + self.coin_partitions:
             if partition < 0: raise ValueError("Partition values must be non-negative")
+            formatted = "{:.2f}".format(partition).replace('.', '_')
             setattr(self, f"partition_{str(partition).replace('.', '_')}_stack", [])
             setattr(self, f"partition_{str(partition).replace('.', '_')}_count", 0)
         # Testing Defaults
-        self.partition_50_count: int = 1
-        self.partition_50_stack: list[float] = [50.0]
-        self.partition_20_count: int = 2
-        self.partition_20_stack: list[float] = [20.0, 10.0]
-        self.partition_10_count: int = 0
-        self.partition_10_stack: list[float] = []
-        self.partition_5_count: int = 1
-        self.partition_5_stack: list[float] = [10.0]
-        self.partition_1_count: int = 4
-        self.partition_1_stack: list[float] = [2.0]
+        self.partition_100_00_count: int = 0
+        self.partition_100_00_stack: list[float] = []
+        self.partition_50_00_count: int = 1
+        self.partition_50_00_stack: list[float] = [50.0]
+        self.partition_20_00_count: int = 2
+        self.partition_20_00_stack: list[float] = [20.0, 10.0]
+        self.partition_10_00_count: int = 0
+        self.partition_10_00_stack: list[float] = []
+        self.partition_5_00_count: int = 1
+        self.partition_5_00_stack: list[float] = [10.0]
+        self.partition_1_00_count: int = 4
+        self.partition_1_00_stack: list[float] = [2.0, 1.0, 1.0, 1.0]
         self.partition_0_50_count: int = 1
         self.partition_0_50_stack: list[float] = [0.50]
         self.partition_0_25_count: int = 1
@@ -69,9 +76,9 @@ class CashRegister:
     def add_money(self, amount: float) -> None:
         if amount < 0: raise ValueError("Add can't be negative")
         if amount == float("inf"): raise ValueError("Add can't be infinite")
-        self.total += round(amount, 2)
-        setattr(self, f"partition_{amount}_count", getattr(self, f"partition_{amount}_count") + 1)
-        getattr(self, f"partition_{amount}_stack").append(round(amount, 2))
+        amount_formatted = ("{:.2f}".format(amount)).replace('.', '_')
+        setattr(self, f"partition_{amount_formatted}_count", getattr(self, f"partition_{amount_formatted}_count") + 1)
+        getattr(self, f"partition_{amount_formatted}_stack").append(round(amount, 2))
         
     def remove_money (self, remove_amount: float) -> float:
         if remove_amount < 0: raise ValueError("Remove can't be negative")
@@ -84,16 +91,22 @@ class CashRegister:
         checking_sum = 0.0
         if checklist is None: checklist = self.bill_partitions + self.coin_partitions
         for arg in checklist:
-            for item in getattr(self, f"partition_{str(arg)}_stack"):
-                checking_sum += float(item)
-        return checking_sum
+            formatted_arg = ("{:.2f}".format(arg)).replace('.', '_')
+            try:
+                for item in getattr(self, f"partition_{formatted_arg}_stack"):
+                    checking_sum += float(item)
+            except Exception as e:
+                print("Error: an item in the checklist is not a valid denomination")
+                sys.exit(1)
+        return round(checking_sum, 2)
 
     def get_percieved_money(self, checklist = None) -> float:
         checking_sum = 0.0
         if checklist is None: checklist = self.bill_partitions + self.coin_partitions
         for arg in checklist:
-            checking_sum += arg * len(getattr(self, f"partition_{str(arg)}_stack")) # Potential Error Point, I believe pylance is overreacting here though
-        return checking_sum
+            formatted_arg = ("{:.2f}".format(arg)).replace('.', '_')
+            checking_sum += arg * len(getattr(self, f"partition_{formatted_arg}_stack")) # Potential Error Point, I believe pylance is overreacting here though
+        return round(checking_sum, 2)
     
 sample_cash_register = CashRegister(currency_code="USD", 
                                     bill_partitions=[100, 50, 20, 10, 5, 1], 
@@ -101,11 +114,11 @@ sample_cash_register = CashRegister(currency_code="USD",
 
 def main():
     try:
-        while len(sys.argv) < 4: sys.argv.append("")
+        while len(sys.argv) < 4: sys.argv.append(None) # type: ignore
         match sys.argv[1].lower():
-            case "get":
+            case "get": #gud
                 assert sys.argv[2] in ["actual", "percieved"], f'Invalid argument: second argument must be "actual" or "percieved"'
-                assert sys.argv[3] == None or (sys.argv[3].startswith("[") and sys.argv[3].endswith("]")), f'Invalid argument: third argument must be a list of floats or ints'
+                assert sys.argv[3] == None or (sys.argv[3].startswith("[") and sys.argv[3].endswith("]")), f'Invalid argument: third argument must be a list of numbers inside quotes'
                 if sys.argv[3]: sys.argv[3] = [float(x) for x in (sys.argv[3].strip("[]").split(","))] # type: ignore
                 if isinstance(sys.argv[3], list) and sys.argv[2] == "actual": print(sample_cash_register.get_actual_money(sys.argv[3]))
                 if sys.argv[2] == "actual": print(sample_cash_register.get_actual_money())
@@ -113,7 +126,7 @@ def main():
                 if sys.argv[2] == "percieved": print(sample_cash_register.get_percieved_money())
                 sys.exit(0)
 
-            case "set":
+            case "set": #gud
                 try:
                     sys.argv[2] = float(sys.argv[2]) # type: ignore
                     assert sys.argv[2] > 0, f'Invalid argument: second argument must be a positive number'
@@ -124,59 +137,75 @@ def main():
                 except ValueError:
                     print("Second Argument of set must be a positive number and not infinite")
                     sys.exit(1)
-                for unit in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions: setattr(sample_cash_register, f"partition_{str(unit)}_count", 0)
-                sample_cash_register.total = round(0.0, 2)
+                for unit in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions: 
+                    formatted_unit = ("{:.2f}".format(unit)).replace('.', '_')
+                    setattr(sample_cash_register, f"partition_{formatted_unit}_count", 0)
+                    setattr(sample_cash_register, f"partition_{formatted_unit}_stack", [])
                 for unit in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
                     while sys.argv[2] - unit >= round(0.0, 2):
                         print(unit)
                         sample_cash_register.add_money(round(unit, 2))
-                        sample_cash_register.total = round(sample_cash_register.total, 2)
-                        sys.argv[2] -= unit # type: ignore
-                    print(sample_cash_register.total)
-                print(f"Total set to {sample_cash_register.total}")
-                if sys.argv[2] > 0:
+                        sys.argv[2] -= round(unit, 2) # type: ignore
+                print(f"Total set to {sample_cash_register.get_percieved_money()}")
+                if round(sys.argv[2], 2) > 0:
                     print(f"Warning: {sys.argv[2]} was left over after setting total, this may be due to rounding errors or insufficient denominations")
                     sys.exit(1)
                 sys.exit(0)
 
-            case "add": 
-                adder_count: float = 0.0
-                sys.argv[2] = float(sys.argv[2]) # type: ignore
+            case "add": #gud
+                adder_count: float = round(0.0, 2)
+                sys.argv[2] = round(float(sys.argv[2]), 2) # type: ignore
                 assert sys.argv[2] >= 0, f'Invalid argument: second argument must be a positive float'
                 if sys.argv[2] == float("inf"): raise ValueError("Add can't be infinite")
-                for unit in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions:
-                    while sys.argv[2] - unit >= 0:
+                if sys.argv[3] is None:
+                    checklist = sample_cash_register.bill_partitions + sample_cash_register.coin_partitions
+                else:
+                    checklist = [float(x) for x in (sys.argv[3].strip("[]").split(","))]
+                for unit in checklist:
+                    unit_formatted = ("{:.2f}".format(unit)).replace('.', '_')
+                    while round(sys.argv[2], 2) - round(unit, 2) >= 0:
                         sample_cash_register.add_money(unit)
-                        adder_count += unit
-                        sys.argv[2] -= unit # type: ignore
-                print(f"Added {adder_count} to total, new total is {sample_cash_register.total}")
+                        adder_count += round(unit, 2)
+                        sys.argv[2] -= round(unit, 2) # type: ignore
+                print(f"Added {adder_count} to total, new total is {sample_cash_register.get_percieved_money()}")
                 if sys.argv[2] > 0:
                     print(f"Warning: {sys.argv[2]} was left over after adding, this may be due to rounding errors or insufficient denominations")
                     sys.exit(1)
                 sys.exit(0)
 
-            case "remove": 
-                sys.argv[2] = float(sys.argv[2]) # type: ignore
+            case "remove": #gud
+                sys.argv[2] = round(float(sys.argv[2]), 2) # type: ignore
                 assert sys.argv[2] > 0, f'Invalid argument: second argument must be a positive float'
                 if sys.argv[2] == float("inf"): raise ValueError("Remove can't be infinite")
                 current_denomination: int|float = 0
                 remaining_debt: float = sys.argv[2] #gonna need to review all sys argv types later
-                for current_denomination in sample_cash_register.bill_partitions + sample_cash_register.coin_partitions: # order these just in case enduser goes out of order
-                    while remaining_debt > current_denomination and getattr(sample_cash_register, f"partition_{str(current_denomination)}_count") > 0:
-                        sample_cash_register.remove_money(current_denomination)
-                        remaining_debt -= current_denomination
-                        setattr(sample_cash_register, f"partition_{str(current_denomination)}_count", getattr(sample_cash_register, f"partition_{str(current_denomination)}_count") - 1)
-                        getattr(sample_cash_register, f"partition_{str(current_denomination)}_stack").pop()
-                if remaining_debt < 0: print(remaining_debt)
-                if remaining_debt > 0:
-                    print(f"Tried removing {sys.argv[2]} from total, new total is {sample_cash_register.total}, but {remaining_debt} was left over")
+                if sys.argv[3] is None:
+                    checklist = sample_cash_register.bill_partitions + sample_cash_register.coin_partitions
                 else:
-                    print(f"Removed {sys.argv[2]} from total, new total is {sample_cash_register.total}")
+                    checklist = [float(x) for x in (sys.argv[3].strip("[]").split(","))]
+                for current_denomination in checklist:
+                    print(f"Current Denomination: {current_denomination}")
+                    curr_denom_formatted = ("{:.2f}".format(current_denomination)).replace('.', '_')
+                    print(f"formatted: {curr_denom_formatted}")
+                    print(getattr(sample_cash_register, f"partition_{curr_denom_formatted}_count"))
+                    print(getattr(sample_cash_register, f"partition_{curr_denom_formatted}_stack"))
+                    while (round(remaining_debt, 2) >= round(current_denomination, 2)) and getattr(sample_cash_register, f"partition_{curr_denom_formatted}_count") > 0:
+                        sample_cash_register.remove_money(current_denomination)
+                        remaining_debt -= round(current_denomination, 2)
+                        setattr(sample_cash_register, 
+                                f"partition_{curr_denom_formatted}_count", 
+                                (getattr(sample_cash_register,
+                                f"partition_{curr_denom_formatted}_count") - 1))
+                        getattr(sample_cash_register, f"partition_{curr_denom_formatted}_stack").pop()
+                        print(round(remaining_debt, 2))
+                if round(remaining_debt, 2) > 0:
+                    print(f"Tried removing {sys.argv[2]} from total, new total is {sample_cash_register.get_percieved_money()}, but {round(remaining_debt, 2):.2f} was left over")
+                else:
+                    print(f"Removed {sys.argv[2]} from total, new total is {sample_cash_register.get_percieved_money()}")
                 sys.exit(0)
 
-            case "adjust":
+            case "adjust": #gud and done
                 sys.argv[2] = float(sys.argv[2]) # type: ignore
-                assert float(sys.argv[2]) is float, f'second argument must be a float'
                 if sys.argv[2] < 0: 
                     sys.argv[1] = "remove"
                     sys.argv[2] = abs(sys.argv[2]) # type: ignore
@@ -187,7 +216,7 @@ def main():
                     sys.exit(0)
                 main()
             
-            case _:
+            case _: #gud and done
                 print("Usage: python main.py 'command_string'")
                 print('"get": argv[2] should be "actual" or "percieved" based on if you want to have each bill or coin checked in their stack')
                 print('"set": argv[2] should be a positive float to set actual total to')
@@ -195,7 +224,8 @@ def main():
                 print('"remove": argv[2] should be a positive float to remove from the total')
                 print('"adjust": argv[2] should be a float to adjust the total by, can be negative')
                 sys.exit(0)
-    except IndexError:
+    except IndexError as e:
+        print(e)
         print("Usage: python main.py 'command_string'")
         print('"get": argv[2] should be "actual" or "percieved" based on if you want to have each bill or coin checked in their stack')
         print('"set": argv[2] should be a positive float to set actual total to')
